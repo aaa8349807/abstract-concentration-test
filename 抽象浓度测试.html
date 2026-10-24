@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>抽象浓度测试 · 一分钟测出你的RP大病</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    font-family:"Microsoft YaHei","PingFang SC","Helvetica Neue",Arial,sans-serif;
+    background: radial-gradient(circle at 20% 10%, #2b0a3d 0%, #0a0a1f 45%, #000 100%);
+    color:#fff;
+    min-height:100vh;
+    overflow-x:hidden;
+    display:flex; align-items:center; justify-content:center;
+  }
+  /* 背景噪点与流动光 */
+  body::before {
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 2px, transparent 2px 4px),
+      radial-gradient(circle at 80% 80%, rgba(255,0,200,.15), transparent 40%),
+      radial-gradient(circle at 10% 90%, rgba(0,255,255,.12), transparent 35%);
+    animation: hue 12s linear infinite;
+  }
+  @keyframes hue { 0%{filter:hue-rotate(0)} 100%{filter:hue-rotate(360deg)} }
+
+  .app { position:relative; z-index:1; width:100%; max-width:760px; min-height:100vh; padding:20px 16px 40px; display:flex; flex-direction:column; }
+
+  /* ============ 通用页面 ============ */
+  .page { display:none; flex-direction:column; align-items:center; justify-content:center; min-height:88vh; text-align:center; animation:pageIn .45s ease; }
+  .page.active { display:flex; }
+  @keyframes pageIn { 0%{opacity:0; transform:translateY(24px) scale(.97)} 100%{opacity:1; transform:none} }
+
+  .big-title {
+    font-size: clamp(42px, 9vw, 88px);
+    font-weight:900; letter-spacing:6px; line-height:1.1;
+    background: linear-gradient(90deg,#ff2d95,#ffd700,#00e5ff,#ff2d95);
+    background-size:300% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation: shine 3s linear infinite, jitter 4s steps(1) infinite;
+    text-shadow: 0 0 40px rgba(255,45,149,.35);
+  }
+  @keyframes shine { 0%{background-position:0% 0} 100%{background-position:300% 0} }
+  @keyframes jitter { 0%,92%,100%{transform:translate(0,0)} 93%{transform:translate(2px,-1px)} 94%{transform:translate(-2px,1px)} 95%{transform:translate(1px,2px)} 96%{transform:translate(0,0)} }
+
+  .sub-title { margin-top:10px; font-size:clamp(15px,3.5vw,20px); color:#ffe66d; font-weight:bold; letter-spacing:2px; text-shadow:0 0 15px rgba(255,230,109,.5); }
+
+  .small-note { margin-top:14px; font-size:12px; color:rgba(255,255,255,.5); line-height:1.7; }
+
+  .cta-btn {
+    display:inline-block; margin-top:30px; padding:16px 46px; font-size:22px; font-weight:900;
+    color:#000; background:linear-gradient(90deg,#ffd700,#ff2d95);
+    border:none; border-radius:999px; cursor:pointer; letter-spacing:4px;
+    box-shadow:0 0 25px rgba(255,45,149,.6), 0 6px 0 #7a0e45;
+    transition:transform .15s, box-shadow .15s;
+    animation:pulse 1.4s ease infinite;
+  }
+  .cta-btn:hover { transform:translateY(-3px) scale(1.04); }
+  .cta-btn:active { transform:translateY(4px); box-shadow:0 0 10px rgba(255,45,149,.4), 0 2px 0 #7a0e45; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 25px rgba(255,45,149,.6), 0 6px 0 #7a0e45} 50%{box-shadow:0 0 45px rgba(255,45,149,.95), 0 6px 0 #7a0e45} }
+
+  /* ============ 性别选择 ============ */
+  .gender-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:16px; width:100%; max-width:560px; margin-top:34px; }
+  .gender-card {
+    padding:26px 12px; border-radius:20px; cursor:pointer; text-align:center;
+    border:3px solid rgba(255,255,255,.2);
+    background:linear-gradient(160deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
+    transition:transform .15s, border-color .15s, box-shadow .15s;
+  }
+  .gender-card:hover { transform:translateY(-6px) scale(1.03); border-color:#ffd700; box-shadow:0 0 25px rgba(255,215,0,.4); }
+  .gender-card .g-icon { font-size:48px; display:block; }
+  .gender-card .g-name { margin-top:10px; font-size:20px; font-weight:900; letter-spacing:2px; }
+  .gender-card .g-desc { margin-top:6px; font-size:12px; color:rgba(255,255,255,.55); }
+
+  /* ============ 答题页 ============ */
+  .quiz-top { width:100%; }
+  .progress-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .q-count { font-size:clamp(16px,4vw,20px); font-weight:900; color:#ffe66d; letter-spacing:1px; }
+  .q-hint { font-size:11px; color:rgba(255,255,255,.45); }
+
+  .progress-grid { display:grid; grid-template-columns:repeat(12,1fr); gap:5px; margin-bottom:18px; }
+  @media (max-width:520px){ .progress-grid { grid-template-columns:repeat(9,1fr); } }
+  .p-cell {
+    aspect-ratio:1; border-radius:6px; cursor:pointer; font-size:10px; font-weight:bold;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(255,255,255,.08); color:rgba(255,255,255,.4); border:1px solid rgba(255,255,255,.1);
+    transition:all .15s;
+  }
+  .p-cell.done { background:linear-gradient(135deg,#00e5ff,#ffd700); color:#000; border-color:#fff; }
+  .p-cell.now { background:#ff2d95; color:#fff; border-color:#fff; animation:pulse 1s infinite; box-shadow:0 0 12px rgba(255,45,149,.8); }
+  .p-cell.locked { cursor:not-allowed; opacity:.5; }
+  .p-cell:hover:not(.locked):not(.now) { transform:scale(1.2); border-color:#ffd700; }
+
+  .question-box {
+    width:100%; padding:clamp(20px,4vw,34px); border-radius:24px; text-align:left;
+    background:linear-gradient(160deg, rgba(255,255,255,.1), rgba(255,255,255,.02));
+    border:2px solid rgba(255,255,255,.18);
+    box-shadow:0 10px 40px rgba(0,0,0,.45);
+  }
+  .q-tag { font-size:12px; color:#ff2d95; letter-spacing:1px; margin-bottom:16px; font-weight:bold; }
+  .q-text { font-size:clamp(19px,5vw,26px); font-weight:900; line-height:1.5; margin-bottom:6px; color:#fff; text-shadow:0 0 20px rgba(0,229,255,.3); }
+
+  .opts { display:flex; flex-direction:column; gap:12px; }
+  .opt {
+    display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:14px; cursor:pointer;
+    background:rgba(255,255,255,.06); border:2px solid rgba(255,255,255,.12);
+    transition:all .15s; font-size:clamp(14px,3.6vw,17px); line-height:1.4;
+  }
+  .opt:hover { border-color:#00e5ff; transform:translateX(6px); background:rgba(0,229,255,.1); }
+  .opt.selected { border-color:#ffd700; background:rgba(255,215,0,.14); box-shadow:0 0 18px rgba(255,215,0,.35); }
+  .opt .o-letter { flex:0 0 30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; background:rgba(255,255,255,.12); }
+  .opt.selected .o-letter { background:#ffd700; color:#000; }
+
+  .quiz-nav { display:flex; justify-content:space-between; gap:12px; margin-top:20px; }
+  .nav-btn {
+    flex:1; padding:14px 10px; font-size:16px; font-weight:900; border-radius:14px; cursor:pointer; letter-spacing:2px;
+    border:2px solid rgba(255,255,255,.25); background:rgba(255,255,255,.08); color:#fff; transition:all .15s;
+  }
+  .nav-btn:hover { border-color:#00e5ff; transform:translateY(-2px); }
+  .nav-btn.primary { background:linear-gradient(90deg,#ffd700,#ff2d95); color:#000; border:none; box-shadow:0 4px 0 #7a0e45; }
+  .nav-btn.primary:active { transform:translateY(3px); box-shadow:none; }
+  .nav-btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+
+  /* ============ 结果页 ============ */
+  .result-wrap { width:100%; max-width:620px; }
+  .result-poster {
+    position:relative; width:100%; border-radius:24px; overflow:hidden;
+    border:3px solid #ffd700; box-shadow:0 0 45px rgba(255,215,0,.35), 0 0 90px rgba(255,45,149,.25);
+    background:linear-gradient(160deg,#1d0a33,#0a0a1f);
+    margin-bottom:22px;
+  }
+  .poster-top { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; font-size:11px; color:rgba(255,255,255,.6); border-bottom:1px dashed rgba(255,255,255,.2); letter-spacing:2px; }
+  .poster-img { position:relative; height:clamp(200px,38vw,300px); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .poster-emoji { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+  .poster-emoji .pe { font-size:clamp(70px,16vw,120px); filter:drop-shadow(0 0 25px rgba(255,215,0,.6)); }
+  .poster-emoji .pe-tag { font-size:14px; letter-spacing:6px; color:#ffe66d; font-weight:900; }
+  .poster-img img.meme { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:2; }
+  /* 弹幕 */
+  .danmaku { position:absolute; inset:0; z-index:3; overflow:hidden; pointer-events:none; }
+  .dm-item {
+    position:absolute; white-space:nowrap; font-size:clamp(12px,3vw,16px); font-weight:900; color:#fff;
+    text-shadow:0 0 6px rgba(0,0,0,.9), 0 0 12px rgba(255,45,149,.8);
+    animation: dmFly linear infinite; opacity:.95;
+  }
+  @keyframes dmFly { from{transform:translateX(110%)} to{transform:translateX(-130%)} }
+  .poster-title {
+    padding:14px 16px 6px; font-size:clamp(24px,6vw,34px); font-weight:900; text-align:center;
+    background:linear-gradient(90deg,#ff2d95,#ffd700,#00e5ff); -webkit-background-clip:text; background-clip:text; color:transparent;
+    letter-spacing:4px;
+  }
+  .poster-sub { text-align:center; font-size:12px; color:rgba(255,255,255,.55); padding:0 16px 12px; }
+
+  .conc-bar { margin:10px 16px 14px; }
+  .conc-label { display:flex; justify-content:space-between; font-size:13px; font-weight:bold; margin-bottom:6px; }
+  .conc-label .lv-name { color:#ffd700; }
+  .conc-label .lv-pct { color:#00e5ff; }
+  .conc-track { height:22px; border-radius:999px; background:rgba(255,255,255,.1); border:2px solid rgba(255,255,255,.25); overflow:hidden; }
+  .conc-fill { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,#00e5ff,#ffd700,#ff2d95); transition:width 1.2s cubic-bezier(.2,.8,.3,1); box-shadow:0 0 15px rgba(255,45,149,.7); }
+
+  /* 称号徽章 */
+  .badge-row { display:flex; align-items:center; gap:14px; margin:6px 16px 12px; padding:12px 14px; border-radius:16px; background:rgba(255,255,255,.05); border:2px dashed rgba(255,215,0,.4); }
+  .badge {
+    flex:0 0 74px; height:74px; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    background:radial-gradient(circle at 35% 30%, #ffe66d, #ff2d95 70%);
+    border:3px solid #fff; box-shadow:0 0 20px rgba(255,215,0,.6); transform:rotate(-8deg);
+  }
+  .badge .b-emoji { font-size:30px; line-height:1; }
+  .badge .b-name { font-size:9px; font-weight:900; color:#000; letter-spacing:1px; }
+  .badge-info { flex:1; text-align:left; }
+  .badge-info .bi-title { font-size:11px; color:#ffe66d; letter-spacing:2px; }
+  .badge-info .bi-line { font-size:clamp(14px,3.6vw,17px); font-weight:900; margin-top:4px; line-height:1.4; }
+
+  /* 属性词条 */
+  .attr-row { display:flex; flex-wrap:wrap; gap:8px; margin:0 16px 14px; justify-content:center; }
+  .attr-tag {
+    padding:7px 12px; border-radius:999px; font-size:12px; font-weight:bold; color:#000;
+    background:linear-gradient(135deg,#00e5ff,#ffd700); box-shadow:0 2px 0 rgba(0,0,0,.3);
+  }
+  .attr-tag:nth-child(2n){ background:linear-gradient(135deg,#ffd700,#ff2d95); }
+  .attr-tag:nth-child(3n){ background:linear-gradient(135deg,#7cffcb,#00bfff); }
+
+  .result-text { padding:6px 16px 12px; text-align:center; }
+  .result-eval { font-size:clamp(16px,4vw,19px); line-height:1.8; color:rgba(255,255,255,.92); }
+
+  /* 化身介绍框 */
+  .intro-box { margin:0 16px 14px; padding:14px; border-radius:14px; text-align:center; font-size:clamp(14px,3.5vw,16px); line-height:1.8; background:rgba(0,229,255,.08); border:2px dashed rgba(0,229,255,.45); color:#b8f5ff; }
+
+  .result-decl {
+    margin:0 16px 14px; padding:14px; border-radius:14px; text-align:center; font-size:15px; line-height:1.8;
+    background:rgba(255,215,0,.08); border:2px dashed rgba(255,215,0,.45); color:#ffe66d; font-weight:bold;
+  }
+
+  /* 土味祝福 */
+  .bless-box { margin:0 16px 14px; padding:12px 14px; border-radius:14px; font-size:clamp(13px,3.4vw,15px); line-height:1.7; background:rgba(255,45,149,.1); border:2px solid rgba(255,45,149,.5); color:#ffb8d9; }
+  .bless-box .b-title { font-weight:900; color:#ffd700; letter-spacing:2px; margin-bottom:4px; }
+
+  /* 抽象语录轮播 */
+  .quote-box { margin:0 16px 14px; padding:10px 14px; border-radius:12px; font-size:clamp(12px,3.2vw,14px); font-weight:bold; color:#9adcff; background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.15); min-height:44px; display:flex; align-items:center; justify-content:center; text-align:center; transition:opacity .3s; }
+
+  .result-actions { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; padding:0 16px; }
+  .result-actions .nav-btn { flex:1; min-width:150px; max-width:260px; }
+  .result-detail { margin-top:14px; font-size:11px; color:rgba(255,255,255,.4); text-align:center; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ======== 开场页 ======== -->
+  <div class="page active" id="page-start">
+    <div class="big-title">抽象浓度测试</div>
+    <div class="sub-title">一分钟测出你的 RP 大病 · 看看你是谁的化身</div>
+    <div style="margin-top:26px; font-size:clamp(14px,3.5vw,17px); color:rgba(255,255,255,.8); line-height:1.8;">
+      本测试由【疯批科学院】与【抽象影视集团】联合出品<br>
+      36 道灵魂拷问 · 每题 4 个选项 · 答完立见你的真身
+    </div>
+    <button class="cta-btn" onclick="showPage('page-gender')">开始发疯 ▶</button>
+    <div class="small-note">
+      ※ 免责声明：本测试纯属娱乐，仅供一笑。<br>
+      ※ 结果不代表任何医学诊断，如有雷同，说明你真的很抽象。<br>
+      ※ 测试过程中产生的笑声、尴尬、瞳孔地震，概不负责。
+    </div>
+  </div>
+
+  <!-- ======== 性别选择页 ======== -->
+  <div class="page" id="page-gender">
+    <div class="big-title" style="font-size:clamp(30px,6vw,52px);">先选个性别</div>
+    <div class="sub-title">决定你将以何种姿态进入抽象世界</div>
+    <div class="gender-grid">
+      <div class="gender-card" onclick="setGender('男')">
+        <span class="g-icon">🧑‍🎤</span>
+        <div class="g-name">男</div>
+        <div class="g-desc">抽象王子 · 深夜emo选手</div>
+      </div>
+      <div class="gender-card" onclick="setGender('女')">
+        <span class="g-icon">👩‍🎤</span>
+        <div class="g-name">女</div>
+        <div class="g-desc">抽象公主 · 发疯文学大师</div>
+      </div>
+      <div class="gender-card" onclick="setGender('不限性别')">
+        <span class="g-icon">👽</span>
+        <div class="g-name">不限性别</div>
+        <div class="g-desc">性别是流动的 · 抽象是永恒的</div>
+      </div>
+    </div>
+    <div class="small-note">（选完立刻开测，犹豫就会败北）</div>
+  </div>
+
+  <!-- ======== 答题页 ======== -->
+  <div class="page" id="page-quiz">
+    <div class="quiz-top">
+      <div class="progress-head">
+        <div class="q-count" id="qCount">第 1/36 题</div>
+        <div class="q-hint">点击数字可跳回已答题目</div>
+      </div>
+      <div class="progress-grid" id="progressGrid"></div>
+    </div>
+    <div class="question-box" id="questionBox">
+      <div class="q-tag" id="qTag">灵魂拷问 · 第 1 题</div>
+      <div class="q-text" id="qText"></div>
+      <div class="opts" id="opts"></div>
+    </div>
+    <div class="quiz-nav">
+      <button class="nav-btn" id="btnPrev" onclick="prevQ()">◀ 上一题</button>
+      <button class="nav-btn primary" id="btnNext" onclick="nextQ()">下一题 ▶</button>
+    </div>
+  </div>
+
+  <!-- ======== 结果页 ======== -->
+  <div class="page" id="page-result">
+    <div class="result-wrap">
+      <div class="result-poster">
+        <div class="poster-top"><span>抽象影业 ABSTRACT PICTURES 出品</span><span>豆瓣评分 9.9</span></div>
+        <div class="poster-img" id="posterImg">
+          <div class="poster-emoji" id="posterEmoji">
+            <span class="pe" id="posterEmojiIcon">💀</span>
+            <span class="pe-tag" id="posterEmojiTag">年度巨制</span>
+          </div>
+          <div class="danmaku" id="danmaku"></div>
+        </div>
+        <div class="poster-title" id="posterTitle">病入膏肓</div>
+        <div class="poster-sub" id="posterSub">主演：{性别} · 导演：抽象本象 · 类型：喜剧/惊悚/纪录</div>
+        <div class="conc-bar">
+          <div class="conc-label"><span class="lv-name" id="lvName">抽象浓度</span><span class="lv-pct" id="lvPct">0%</span></div>
+          <div class="conc-track"><div class="conc-fill" id="concFill"></div></div>
+        </div>
+        <div class="badge-row">
+          <div class="badge"><span class="b-emoji" id="badgeEmoji">🐵</span><span class="b-name" id="badgeShort">大圣体</span></div>
+          <div class="badge-info">
+            <div class="bi-title">🏅 抽象身份证 · 已盖章</div>
+            <div class="bi-line" id="badgeName">你是孙悟空的化身，简称大圣体</div>
+          </div>
+        </div>
+        <div class="intro-box" id="introBox"></div>
+        <div class="result-text">
+          <div class="result-eval" id="resultEval"></div>
+        </div>
+        <div class="attr-row" id="attrRow"></div>
+        <div class="result-decl" id="resultDecl"></div>
+        <div class="bless-box" id="blessBox"></div>
+        <div class="quote-box" id="quoteBox">🌀 抽象语录加载中……</div>
+        <div class="result-actions">
+          <button class="nav-btn" onclick="copyResult()">📋 复制战绩</button>
+          <button class="nav-btn primary" onclick="restart()">🔁 再来一次</button>
+        </div>
+        <div class="result-detail" id="resultDetail"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ================= 题库：36 道灵魂拷问 ================= */
+const QUESTIONS = [
+  { q:"深夜两点，你突然被饿醒，此时你的第一反应是？", opts:[
+      {t:"打开外卖APP，对着屏幕犹豫两小时，最后点了个寂寞", v:0},
+      {t:"狂炫冰箱里的剩饭剩菜，边吃边愧疚", v:1},
+      {t:"喝水，假装自己是辟谷仙人", v:2},
+      {t:"饿到开始给空气表演做饭", v:3}
+  ]},
+  { q:"你的手机电量只剩 5%，你的内心活动是？", opts:[
+      {t:"无所谓，反正也没人找我", v:1},
+      {t:"恐慌，立刻满屋找充电宝", v:0},
+      {t:"打开备忘录开始写遗书", v:3},
+      {t:"用最后5%电量刷完3小时视频", v:2}
+  ]},
+  { q:"朋友问你在干嘛，你一般怎么回答？", opts:[
+      {t:"在搬砖，勿扰", v:0},
+      {t:"在修仙，马上飞升", v:2},
+      {t:"在跟迈克尔·杰克逊月球漫步", v:3},
+      {t:"在emo，勿cue，蟹蟹", v:1}
+  ]},
+  { q:"你最常用的口头禅是？", opts:[
+      {t:"啊对对对，你说得都对", v:2},
+      {t:"6", v:1},
+      {t:"家人们谁懂啊！！！", v:3},
+      {t:"好的呢亲～", v:0}
+  ]},
+  { q:"面对即将到来的deadline，你的策略是？", opts:[
+      {t:"提前两天做完，做个卷王", v:0},
+      {t:"通宵爆肝，肝到天亮", v:1},
+      {t:"先睡一觉，反正还有明天", v:2},
+      {t:"假装这个世界上不存在deadline", v:3}
+  ]},
+  { q:"你emo的时候，最常做的事是？", opts:[
+      {t:"循环播放伤感情歌，哭到天亮", v:1},
+      {t:"写小作文发朋友圈，然后秒删", v:2},
+      {t:"对着镜子深情演绎偶像剧男主", v:3},
+      {t:"睡一觉，天塌了明天再说", v:0}
+  ]},
+  { q:"如果有人对你说“你好抽象”，你会？", opts:[
+      {t:"谢谢夸奖，有眼光", v:3},
+      {t:"你才抽象，你全家都抽象", v:1},
+      {t:"内心毫无波澜，继续发呆", v:0},
+      {t:"当场给他表演一个抽象，震住全场", v:2}
+  ]},
+  { q:"你早上起床的第一件事是？", opts:[
+      {t:"摸手机，开启一天网瘾生活", v:1},
+      {t:"躺在床上思考人生的意义", v:2},
+      {t:"再睡五分钟——然后两小时过去了", v:3},
+      {t:"带着起床气先骂两句再起床", v:0}
+  ]},
+  { q:"你的真实社交状态是？", opts:[
+      {t:"社牛，见谁都聊得来", v:0},
+      {t:"社恐，能不说话就不说", v:1},
+      {t:"时牛时恐，全看对方颜值", v:2},
+      {t:"我根本不是人，是互联网幽灵", v:3}
+  ]},
+  { q:"看到“包浆”这个词，你第一反应是？", opts:[
+      {t:"文玩手串，盘出岁月的痕迹", v:0},
+      {t:"老照片，复古滤镜", v:1},
+      {t:"祖传的键盘，油光锃亮", v:2},
+      {t:"我的精神状态，早已包浆", v:3}
+  ]},
+  { q:"你最喜欢别人用哪种方式安慰你？", opts:[
+      {t:"请我吃饭，用美食治愈", v:0},
+      {t:"直接转账，金钱最真诚", v:1},
+      {t:"安静听我发疯，然后陪我一起疯", v:2},
+      {t:"给我发一整套抽象表情包轰炸", v:3}
+  ]},
+  { q:"你的微信状态现在是？", opts:[
+      {t:"冲！", v:1},
+      {t:"勿扰模式，人间蒸发", v:2},
+      {t:"已开启勿扰模式，有事烧纸", v:0},
+      {t:"我在第五人格里抓人，勿扰", v:3}
+  ]},
+  { q:"你如何评价自己的智商？", opts:[
+      {t:"985 高材生，人类之光", v:0},
+      {t:"间歇性天才，时灵时不灵", v:1},
+      {t:"聪明反被聪明误的典中典", v:2},
+      {t:"时常怀疑自己不是人类，是外星卧底", v:3}
+  ]},
+  { q:"有人抢走了你最后一口奶茶，你会？", opts:[
+      {t:"算了算了，让TA喝吧", v:0},
+      {t:"当场暴走，追杀三条街", v:1},
+      {t:"阴阳怪气TA整整三天", v:2},
+      {t:"内心默默编剧一百集复仇大戏", v:3}
+  ]},
+  { q:"你对“明天”的态度是？", opts:[
+      {t:"明天会更好，充满希望", v:0},
+      {t:"明天的烦恼明天再说", v:1},
+      {t:"明天再说吧，今天先烂", v:2},
+      {t:"明天就是世界末日，今天赶紧疯", v:3}
+  ]},
+  { q:"深夜刷手机，突然刷到前任的动态，你会？", opts:[
+      {t:"果断划走，老子已放下", v:0},
+      {t:"点赞，展示我的大气", v:1},
+      {t:"截图发给闺蜜，连夜开分析大会", v:2},
+      {t:"连夜写出十万字《前任行为心理学分析报告》", v:3}
+  ]},
+  { q:"你买衣服时，最看重什么？", opts:[
+      {t:"舒适，穿着像个人", v:0},
+      {t:"显瘦，P图都省了", v:1},
+      {t:"别人买我也买，跟风冠军", v:2},
+      {t:"够抽象，穿上立刻成为整条街的焦点", v:3}
+  ]},
+  { q:"你的钱包目前处于什么状态？", opts:[
+      {t:"余额充足，财神爷亲儿子", v:0},
+      {t:"勉强活着，月光战士", v:1},
+      {t:"负数，正在给银行打工还债", v:2},
+      {t:"钱是什么？我只有灵魂了，还是碎的", v:3}
+  ]},
+  { q:"开会时老板说“大家畅所欲言”，你会？", opts:[
+      {t:"认真发言，展示专业", v:0},
+      {t:"默默记笔记，做隐形人", v:1},
+      {t:"在心里把整个部门骂了一遍", v:2},
+      {t:"灵魂出窍，肉身留在会议室渡劫", v:3}
+  ]},
+  { q:"你的周末计划通常是？", opts:[
+      {t:"运动、学习、自律三件套", v:0},
+      {t:"补觉一整天，睡成植物人", v:1},
+      {t:"躺着刷手机，直到周一", v:2},
+      {t:"制定一份完美计划，然后全部不执行", v:3}
+  ]},
+  { q:"被人说“你不对劲”，你的反应是？", opts:[
+      {t:"我哪不对劲了？我很正常", v:0},
+      {t:"确实有点，但问题不大", v:1},
+      {t:"你才不对劲，你们全家都不对劲", v:2},
+      {t:"我从来就没对劲过，你才发现？", v:3}
+  ]},
+  { q:"你的择偶标准是？", opts:[
+      {t:"三观正、人品好、能过日子", v:0},
+      {t:"长得好看，其他随缘", v:1},
+      {t:"不嫌弃我就行，要求不高", v:2},
+      {t:"能听懂我的梗，最好比我还抽象", v:3}
+  ]},
+  { q:"如果明天就是世界末日，你今天会？", opts:[
+      {t:"跟家人好好告别，抱头痛哭", v:0},
+      {t:"疯狂消费，把工资全花光", v:1},
+      {t:"录一个末日Vlog，发到B站", v:2},
+      {t:"发朋友圈：哈哈哈哈终于等到了", v:3}
+  ]},
+  { q:"你对工作的真实态度是？", opts:[
+      {t:"热爱工作，工作使我快乐", v:0},
+      {t:"摸鱼大师，能混则混", v:1},
+      {t:"上班如上坟，班味十足", v:2},
+      {t:"我是来渡劫的，这破班上得我道心不稳", v:3}
+  ]},
+  { q:"你的电脑桌面是？", opts:[
+      {t:"井井有条，图标整整齐齐", v:0},
+      {t:"一堆文件夹，自己都找不到文件", v:1},
+      {t:"图标全堆在左边，挤成一团", v:2},
+      {t:"壁纸都是抽象图，图标乱成艺术品", v:3}
+  ]},
+  { q:"你打字回复“6”，一般是想表达？", opts:[
+      {t:"真心夸赞，牛啊牛啊", v:0},
+      {t:"敷衍，懒得打字", v:1},
+      {t:"无语，血压飙升", v:2},
+      {t:"一种神秘的抽象暗号，我信了", v:3}
+  ]},
+  { q:"你的睡眠质量如何？", opts:[
+      {t:"沾枕头就着，睡神附体", v:0},
+      {t:"睡睡醒醒，多梦选手", v:1},
+      {t:"失眠到天亮，数了十万只羊", v:2},
+      {t:"我不睡觉，我是夜行动物，昼伏夜出", v:3}
+  ]},
+  { q:"你发朋友圈的频率是？", opts:[
+      {t:"从不发，人间隐身", v:0},
+      {t:"偶尔记录生活，岁月静好", v:1},
+      {t:"发完秒删，循环往复", v:2},
+      {t:"每天一篇发疯文学，朋友圈是我的日记", v:3}
+  ]},
+  { q:"你觉得自己的精神状态目前是？", opts:[
+      {t:"非常稳定，稳如老狗", v:0},
+      {t:"偶尔波动，小风小浪", v:1},
+      {t:"每天都在崩溃边缘反复横跳", v:2},
+      {t:"早已疯成了艺术，精神状态领先版本", v:3}
+  ]},
+  { q:"看到“尊嘟假嘟”四个字，你的反应是？", opts:[
+      {t:"尊嘟假嘟？尊嘟假嘟！", v:3},
+      {t:"这是啥？我2G网了？", v:0},
+      {t:"有点可爱，偷偷用一下", v:1},
+      {t:"血压瞬间上来了，禁止网络用语", v:2}
+  ]},
+  { q:"你的网名是什么风格？", opts:[
+      {t:"真名或正经昵称", v:0},
+      {t:"带emoji的可爱名字", v:1},
+      {t:"一句话精神状态（如：今天也不想上班）", v:2},
+      {t:"乱码/火星文/神秘符号，谁都看不懂", v:3}
+  ]},
+  { q:"朋友失恋了找你哭诉，你会？", opts:[
+      {t:"耐心安慰，当情感导师", v:0},
+      {t:"请TA吃饭，用美食止痛", v:1},
+      {t:"陪TA一起哭，哭得比TA还惨", v:2},
+      {t:"给TA循环播放《体面》，伤口上撒盐", v:3}
+  ]},
+  { q:"你对“恋爱脑”这个词的理解是？", opts:[
+      {t:"一种病，得治", v:0},
+      {t:"我不理解，但我尊重", v:1},
+      {t:"我本人，别骂了别骂了", v:2},
+      {t:"恋爱是什么？我只爱抽象，抽象才是真爱", v:3}
+  ]},
+  { q:"这个季度的KPI完成情况是？", opts:[
+      {t:"超额完成，卷王本王", v:0},
+      {t:"勉强达标，惊险过关", v:1},
+      {t:"在及格线边缘反复挣扎", v:2},
+      {t:"KPI是啥？我的人生只有DDL和emo", v:3}
+  ]},
+  { q:"有人给你发消息问“在吗”，你会回？", opts:[
+      {t:"在的，请讲", v:0},
+      {t:"在，但没完全在", v:1},
+      {t:"不在", v:2},
+      {t:"尸体而已，有事烧纸", v:3}
+  ]},
+  { q:"最后一问：请用一句话总结你自己。", opts:[
+      {t:"正常人，很正常，非常正常", v:0},
+      {t:"有点毛病，但不大，还能抢救", v:1},
+      {t:"抽象艺术本人，行走的梗王", v:2},
+      {t:"病入膏肓，无药可救，勿救", v:3}
+  ]}
+];
+
+/* ================= 结果等级：XX化身（7 档） ================= */
+const LEVELS = [
+  { name:"你是猫猫的化身，简称猫化体", short:"猫化体", pct:0, emoji:"🐱", tag:"年度治愈大片", title:"《猫化体》",
+    sub:"主演：{g} · 导演：高冷本冷 · 类型：治愈/发呆",
+    intro:"猫猫，一种高冷优雅、世界与我无关的生物。你是它的化身，简称猫化体——日常是晒太阳、发呆、谁也不鸟，偶尔伸个懒腰就当是运动了。",
+    eval:"在这个人均发疯的时代，你宛如一只岁月静好的猫猫。不参与抽象战争，不关心人类死活，只在乎今天的罐罐和窗台的阳光。恭喜你，你是疯批世界里最后的清醒生物。",
+    decl:"我是高贵的猫猫，人类的爱恨情仇与我无关。喵。",
+    bless:"祝你今天猫粮管够，人类少来烦你。",
+    attrs:["高冷值：+99","发呆时长：12小时/天","世界与我无关指数：MAX","铲屎官依赖度：0%","晒太阳专业八级","对人类：喵喵（翻译：滚）"],
+    memes:["https://i.imgflip.com/1g8my4.jpg"] },
+  { name:"你是小狗的化身，简称狗化体", short:"狗化体", pct:15, emoji:"🐶", tag:"年度憨憨小品", title:"《狗化体》",
+    sub:"主演：{g} · 导演：忠诚本诚 · 类型：喜剧/温馨",
+    intro:"小狗，一种热情似火、偶尔犯傻的生物。你是它的化身，简称狗化体——见到吃的就摇尾巴，见到人就热情扑上去，偶尔还会追着自己的尾巴原地转圈三小时。",
+    eval:"你的抽象程度约等于一只拆家的小狗：有破坏力，但无恶意；会犯傻，但很真诚。精神状态是好的，就是偶尔会把自己绕晕，追着尾巴原地转圈，还以为自己在环游世界。",
+    decl:"我超热情！我超真诚！汪汪汪！（然后一头撞在门上）",
+    bless:"祝你拆家永远拆到沙发垫，快乐永远不掉线。",
+    attrs:["拆家能力：初现端倪","热情值：+88","傻得可爱指数：99%","追尾巴时长：3小时起","忠诚度：满格","犯傻频率：每5分钟一次"],
+    memes:["https://i.imgflip.com/30b1gx.jpg"] },
+  { name:"你是猴子的化身，简称猴化体", short:"猴化体", pct:35, emoji:"🐒", tag:"年度潜力新星", title:"《猴化体》",
+    sub:"主演：{g} · 导演：上蹿下跳 · 类型：喜剧/动作",
+    intro:"猴子，一种精力旺盛、上蹿下跳、抓耳挠腮的生物。你是它的化身，简称猴化体——坐不住，闲不下，总想搞点动静，时不时对着空气吱哇乱叫，还觉得自己很帅。",
+    eval:"你的抽象灵魂已经正式觉醒，开始像猴子一样四处蹦跶。聊天记录里到处是你的烂梗，表情包存货开始以肉眼可见的速度膨胀。注意：这只是开始，后面的路还很长，建议提前给手机内存买保险。",
+    decl:"吱！吱吱！我上蹿下跳是因为抽象在燃烧！吱吱吱！（抓耳挠腮.gif）",
+    bless:"祝你上蹿下跳永远不掉下来，快乐永远不落地。",
+    attrs:["蹦跶指数：+77","梗量储备：正在膨胀","坐不住值：MAX","抓耳挠腮频率：高频","烂梗产量：每日10条","树上挂时长：2小时起"],
+    memes:["https://i.imgflip.com/2fm6x.jpg"] },
+  { name:"你是猪八戒的化身，简称八戒体", short:"八戒体", pct:55, emoji:"🐷", tag:"年度爆笑之作", title:"《八戒体》",
+    sub:"主演：{g} · 导演：好吃懒做 · 类型：喜剧/奇幻",
+    intro:"猪八戒，一种又懒又馋、还总想偷懒摸鱼的生物。你是它的化身，简称八戒体——能躺着绝不坐着，能摸鱼绝不干活，看到吃的两眼放光，遇到难事第一反应就是“大师兄，救命”。",
+    eval:"你的抽象浓度已经赶上二师兄了：嘴上说着减肥，手里疯狂炫饭；嘴上说着努力，身体诚实躺平。你的人生信条是：能少走一步绝不多走半步，能摸鱼就绝不下河。高老庄都装不下你的快乐。",
+    decl:"师父别念了！大师兄救命！……诶，饭好了没？抽象这活儿，等我吃完再说！",
+    bless:"祝你干饭永远不剩饭，摸鱼永远不被抓。",
+    attrs:["摸鱼大师：认证","饭量：无底洞","躺平值：+99","偷懒天赋：天选之人","见到美食走不动道","大师兄救命频率：每日N次"],
+    memes:["https://i.imgflip.com/1e3k2p.jpg"] },
+  { name:"你是孙悟空的化身，简称大圣体", short:"大圣体", pct:75, emoji:"🐵", tag:"年度现象级大片", title:"《大圣体》",
+    sub:"主演：{g} · 导演：无法无天 · 类型：魔幻/动作",
+    intro:"孙悟空，一种无法无天、一个筋斗十万八千里、说话像连珠炮的生物。你是它的化身，简称大圣体——嘴皮子溜到飞起，梗多到能打一场仗，谁都管不住你这只泼猴。",
+    eval:"你已修炼成精！你的每句话都是梗，你的表情包能打赢一场战争，抽象已经成了你的母语。你是花果山扛把子，抽象界的齐天大圣，玉皇大帝来了都得喊你一声哥。",
+    decl:"俺老孙来也！妖魔鬼怪统统退散！……什么？你说我抽象？我这是天生丽质难自弃！",
+    bless:"祝你永远不被紧箍咒束缚，抽象之路畅通无阻。",
+    attrs:["嘴皮子：机关枪级","筋斗云：一天十万八千里","梗量储备：核弹级","无法无天值：MAX","紧箍咒免疫：已激活","自称俺老孙频率：高频"],
+    memes:["https://i.imgflip.com/1bij.jpg"] },
+  { name:"你是六耳猕猴的化身，简称猕猴体", short:"猕猴体", pct:95, emoji:"🙈", tag:"年度封神之作", title:"《猕猴体》",
+    sub:"主演：{g} · 导演：真假难辨 · 类型：惊悚/神作",
+    intro:"六耳猕猴，一种真假难辨、以假乱真、疯到连如来都差点分不清的生物。你是它的化身，简称猕猴体——你说的话没人分得清是真是假，你本人可能也分不清自己在说啥。",
+    eval:"没救了，等死吧——不，说错了。你是抽象界的终极艺术品，疯批世界的无冕之王。连如来佛祖都要眯起眼睛仔细分辨：这到底是人，还是抽象本身？建议你开班，教全人类怎么这么会抽象。",
+    decl:"我就是我，是颜色不一样的烟火？不，我是六耳猕猴，连我自己都分不清我是不是我！",
+    bless:"祝你疯得自由，疯得快乐，疯得连自己都信了。",
+    attrs:["真假难辨：连本人都分不清","疯批值：爆表","以假乱真能力：MAX","如来都要眯眼认证","抽象浓度：已超出仪器量程","自我认知：薛定谔的存在"],
+    memes:["https://i.imgflip.com/2q2v4c.jpg"] },
+  { name:"你是如来佛祖的化身，简称佛祖体", short:"佛祖体", pct:100, emoji:"🧘‍♂️", tag:"年度万梗之源", title:"《佛祖体》",
+    sub:"主演：{g} · 导演：抽象本象 · 类型：神话/终极",
+    intro:"如来佛祖，万物的主宰，压住孙悟空的五指山，也是所有抽象的终极源头。你是它的化身，简称佛祖体——你不再是抽象的化身，你是抽象本身，是万梗之源，是互联网的最终形态。",
+    eval:"恭喜你达成满分！你已超越抽象，成为抽象本身。所有烂梗从你指尖流出，所有疯话以你为源头，你随手一指就是一座五指山，能压住全网的抽象带师。你不是人，你是抽象界的如来。",
+    decl:"阿弥陀佛，众生皆苦，唯我全糖。……什么？你说我抽象？我不抽象，我只是一切抽象的起点而已。",
+    bless:"祝你法力无边，笑口常开，一手指天一手抓梗。",
+    attrs:["万梗之源：认证","五指山镇压能力：MAX","超越抽象：已抵达","疯批终极形态：解锁","全网抽象祖师爷","如来神掌：一掌一个带师"],
+    memes:["https://i.imgflip.com/1g8my4.jpg"] }
+];
+
+/* ================= 弹幕池 / 语录池 ================= */
+const DANMAKU_POOL = [
+  "哈哈哈哈笑死", "鉴定为：抽象", "医生：没救了", "我测也是这个",
+  "浓度超标警告", "建议严查", "绷不住了", "精神状态领先版本",
+  "家人们谁懂啊", "这不是我嘛", "笑死我了哈哈", "抽象浓度爆表",
+  "离谱他妈给离谱开门", "此生无憾了", "笑不活了家人们", "出大问题"
+];
+const QUOTE_POOL = [
+  "生活不止眼前的苟且，还有看不懂的梗。",
+  "人类的本质是复读机：啊对对对。",
+  "我emo了，但没完全emo，是薛定谔的emo。",
+  "今天也是不想上班的一天，和昨天一样，和明天也一样。",
+  "我的精神状态：稳定地不稳定。",
+  "你不懂我的抽象，就像猴子不懂三角函数。",
+  "世界以痛吻我，我反手一个666。",
+  "抽象不是病，病起来真要命，而我药石无医。",
+  "人一旦抽象，就会一直抽象，简称：人一旦。",
+  "我在等一个能接住我梗的人，等到世界末日。"
+];
+const TAG_POOL = [
+  "灵魂拷问 · 第 {n} 题 · 这题送分的，别慌",
+  "灵魂拷问 · 第 {n} 题 · 注意：此题有诈",
+  "灵魂拷问 · 第 {n} 题 · 答错不扣钱，随便选",
+  "灵魂拷问 · 第 {n} 题 · 提示：选最疯的那个",
+  "灵魂拷问 · 第 {n} 题 · 本题考验你的精神状态",
+  "灵魂拷问 · 第 {n} 题 · 正常人看了都摇头",
+  "灵魂拷问 · 第 {n} 题 · 这题我编的时候笑出声了",
+  "灵魂拷问 · 第 {n} 题 · 认真你就输了"
+];
+
+/* ================= 工具函数 ================= */
+function randArr(arr, n){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a.slice(0, n);
+}
+
+/* ================= 状态 ================= */
+let gender = null;
+let answers = new Array(QUESTIONS.length).fill(null);
+let cur = 0;
+let quoteTimer = null;
+
+/* ================= 页面切换 ================= */
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function setGender(g){
+  gender = g;
+  answers = new Array(QUESTIONS.length).fill(null);
+  cur = 0;
+  showPage('page-quiz');
+  renderProgress();
+  renderQuestion();
+}
+
+/* ================= 进度条 ================= */
+function renderProgress(){
+  const grid = document.getElementById('progressGrid');
+  grid.innerHTML = '';
+  const maxAnswered = getMaxAnswered();
+  for(let i=0;i<QUESTIONS.length;i++){
+    const c = document.createElement('div');
+    c.className = 'p-cell' + (answers[i]!==null?' done':'') + (i===cur?' now':'') + (i>maxAnswered?' locked':'');
+    c.textContent = i+1;
+    c.onclick = ()=>gotoQ(i);
+    grid.appendChild(c);
+  }
+  document.getElementById('qCount').textContent = `第 ${cur+1}/${QUESTIONS.length} 题`;
+}
+
+function getMaxAnswered(){
+  let m = cur;
+  for(let i=0;i<answers.length;i++){ if(answers[i]!==null) m = Math.max(m,i); }
+  return m;
+}
+
+/* ================= 题目渲染 ================= */
+function renderQuestion(){
+  const q = QUESTIONS[cur];
+  document.getElementById('qText').textContent = q.q;
+  const tag = TAG_POOL[Math.floor(Math.random()*TAG_POOL.length)].replace('{n}', cur+1);
+  document.getElementById('qTag').textContent = tag;
+  const box = document.getElementById('opts');
+  box.innerHTML = '';
+  const letters = ['A','B','C','D'];
+  q.opts.forEach((op,idx)=>{
+    const el = document.createElement('div');
+    el.className = 'opt' + (answers[cur]===op.v && answers[cur]!==null?' selected':'');
+    el.innerHTML = `<span class="o-letter">${letters[idx]}</span><span>${op.t}</span>`;
+    el.onclick = ()=>selectOpt(idx);
+    box.appendChild(el);
+  });
+  document.getElementById('btnPrev').disabled = (cur===0);
+  const nextBtn = document.getElementById('btnNext');
+  nextBtn.textContent = (cur===QUESTIONS.length-1) ? '🏁 查看结果' : '下一题 ▶';
+  nextBtn.disabled = (answers[cur]===null);
+  renderProgress();
+}
+
+function selectOpt(idx){
+  answers[cur] = QUESTIONS[cur].opts[idx].v;
+  const boxes = document.querySelectorAll('#opts .opt');
+  boxes.forEach(b=>b.classList.remove('selected'));
+  boxes[idx].classList.add('selected');
+  document.getElementById('btnNext').disabled = false;
+  renderProgress();
+}
+
+function prevQ(){ if(cur>0){ cur--; renderQuestion(); } }
+function nextQ(){
+  if(answers[cur]===null) return;
+  if(cur < QUESTIONS.length-1){ cur++; renderQuestion(); }
+  else { showResult(); }
+}
+function gotoQ(i){
+  if(i<=getMaxAnswered()){ cur=i; renderQuestion(); }
+}
+
+/* ================= 结果 ================= */
+function showResult(){
+  const total = answers.reduce((s,v)=>s+v,0);
+  const maxScore = QUESTIONS.length*3;
+  let lv = LEVELS[0];
+  if(total<=17) lv = LEVELS[0];
+  else if(total<=35) lv = LEVELS[1];
+  else if(total<=53) lv = LEVELS[2];
+  else if(total<=71) lv = LEVELS[3];
+  else if(total<=89) lv = LEVELS[4];
+  else if(total<=107) lv = LEVELS[5];
+  else lv = LEVELS[6];
+
+  let pct = Math.round(total/maxScore*100);
+  if(total===maxScore) pct = 100;
+
+  document.getElementById('posterTitle').textContent = lv.title;
+  document.getElementById('posterSub').textContent = lv.sub.replace('{g}', gender||'神秘生物');
+  document.getElementById('posterEmojiIcon').textContent = lv.emoji;
+  document.getElementById('posterEmojiTag').textContent = lv.tag;
+  document.getElementById('lvName').textContent = `抽象浓度 · ${lv.name}`;
+  document.getElementById('lvPct').textContent = `${pct}%`;
+  document.getElementById('concFill').style.width = '0%';
+
+  document.getElementById('badgeEmoji').textContent = lv.emoji;
+  document.getElementById('badgeShort').textContent = lv.short;
+  document.getElementById('badgeName').textContent = lv.name;
+  document.getElementById('introBox').innerHTML = `【真身鉴定】${lv.intro}`;
+  document.getElementById('resultEval').innerHTML = lv.eval.replace(/\n/g,'<br>');
+  document.getElementById('resultDecl').innerHTML = `【中二宣言】<br>${lv.decl.replace(/\n/g,'<br>')}`;
+  document.getElementById('resultDetail').textContent = `得分 ${total}/${maxScore} 分 · 检测对象：${gender||'神秘'}性抽象生物 · 本片由抽象影业荣誉出品`;
+
+  // 属性词条：本等级池随机 3 条
+  const attrRow = document.getElementById('attrRow');
+  attrRow.innerHTML = '';
+  randArr(lv.attrs, 3).forEach(t=>{
+    const s = document.createElement('span');
+    s.className = 'attr-tag'; s.textContent = t;
+    attrRow.appendChild(s);
+  });
+
+  // 土味祝福
+  document.getElementById('blessBox').innerHTML = `<div class="b-title">💐 抽象界土味祝福</div>${lv.bless}`;
+
+  // 弹幕彩蛋
+  const dmBox = document.getElementById('danmaku');
+  dmBox.innerHTML = '';
+  randArr(DANMAKU_POOL, 6).forEach((txt, i)=>{
+    const d = document.createElement('div');
+    d.className = 'dm-item';
+    d.textContent = txt;
+    d.style.top = (8 + i*13) + '%';
+    d.style.fontSize = (12 + Math.floor(Math.random()*6)) + 'px';
+    d.style.animationDuration = (6 + Math.random()*5) + 's';
+    d.style.animationDelay = (Math.random()*4) + 's';
+    dmBox.appendChild(d);
+  });
+
+  // 抽象语录轮播
+  startQuoteLoop();
+
+  // 尝试加载梗图，失败则保留 emoji 海报
+  const imgWrap = document.getElementById('posterImg');
+  imgWrap.querySelectorAll('img.meme').forEach(i=>i.remove());
+  const img = new Image();
+  img.className = 'meme';
+  img.alt = lv.name;
+  img.onerror = ()=>{ img.remove(); };
+  img.onload = ()=>{ imgWrap.appendChild(img); };
+  img.src = lv.memes[0];
+
+  showPage('page-result');
+  setTimeout(()=>{ document.getElementById('concFill').style.width = pct+'%'; }, 300);
+}
+
+function startQuoteLoop(){
+  if(quoteTimer) clearInterval(quoteTimer);
+  const box = document.getElementById('quoteBox');
+  let idx = Math.floor(Math.random()*QUOTE_POOL.length);
+  box.textContent = '🌀 ' + QUOTE_POOL[idx];
+  quoteTimer = setInterval(()=>{
+    box.style.opacity = '0';
+    setTimeout(()=>{
+      idx = (idx+1) % QUOTE_POOL.length;
+      box.textContent = '🌀 ' + QUOTE_POOL[idx];
+      box.style.opacity = '1';
+    }, 300);
+  }, 4000);
+}
+
+function restart(){
+  if(quoteTimer){ clearInterval(quoteTimer); quoteTimer = null; }
+  gender = null;
+  answers = new Array(QUESTIONS.length).fill(null);
+  cur = 0;
+  showPage('page-gender');
+}
+
+function copyResult(){
+  const total = answers.reduce((s,v)=>s+v,0);
+  const maxScore = QUESTIONS.length*3;
+  let pct = Math.round(total/maxScore*100);
+  if(total===maxScore) pct = 100;
+  let lv = LEVELS[0];
+  if(total<=17) lv = LEVELS[0]; else if(total<=35) lv = LEVELS[1];
+  else if(total<=53) lv = LEVELS[2]; else if(total<=71) lv = LEVELS[3];
+  else if(total<=89) lv = LEVELS[4]; else if(total<=107) lv = LEVELS[5];
+  else lv = LEVELS[6];
+  const text = `【抽象浓度测试】\n检测对象：${gender||'神秘'}性生物\n抽象浓度：${pct}%\n真身：${lv.name}\n宣言：${lv.decl}\n—— 来自抽象影业 · 有病同享 ——`;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>alert('战绩已复制，快发朋友圈丢人吧！')).catch(()=>fallbackCopy(text));
+  } else { fallbackCopy(text); }
+}
+function fallbackCopy(text){
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); ta.remove(); alert('战绩已复制，快发朋友圈丢人吧！');
+}
+</script>
+</body>
+</html>
